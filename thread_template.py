@@ -1,7 +1,7 @@
 """
-CS 530 Module Three: Multithreading template (Bug Introduction)
+CS 530 Module Three: Multithreading template (Bug Fix)
 
-BUG: functionTwo forgets to queue.put() on success, so main blocks waiting for 3 results.
+Bug fixed: functionTwo now reports its result via queue, preventing main from hanging.
 """
 
 import threading
@@ -53,16 +53,7 @@ def functionTwo(result_queue: "queue.Queue[Result]") -> None:
     try:
         time.sleep(0.15)
         work = sum(i * 3 for i in range(3000))
-
-        # BUG: success result is created but NEVER queued.
-        _ = {
-            "status": "success",
-            "thread_name": threading.current_thread().name,
-            "timestamp": _timestamp(),
-            "message": f"Task 2 completed (work={work})",
-        }
-        # Missing: result_queue.put(...)
-
+        _put_success(result_queue, f"Task 2 completed (work={work})")
     except Exception as e:
         _put_error(result_queue, f"Task 2 failed: {type(e).__name__}: {e}")
 
@@ -95,7 +86,6 @@ def main() -> None:
 
     results: List[Result] = []
     for _ in range(3):
-        # HANGS on the 3rd get() because only 2 results were queued.
         results.append(result_queue.get())
 
     success_count = sum(1 for r in results if r.get("status") == "success")
@@ -109,6 +99,13 @@ def main() -> None:
     print(f"  Total results collected: {len(results)}")
     print(f"  Successful: {success_count}")
     print(f"  Failed: {error_count}")
+
+    if len(results) == 3 and error_count == 0:
+        print(f"[{_timestamp()}] [Main] ✓ SUCCESS: All 3 workers completed successfully.")
+    elif len(results) == 3:
+        print(f"[{_timestamp()}] [Main] ⚠ PARTIAL: All 3 workers reported, but {error_count} failed.")
+    else:
+        print(f"[{_timestamp()}] [Main] ✗ ERROR: Expected 3 results, got {len(results)}.")
 
 
 if __name__ == "__main__":
